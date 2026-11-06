@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000">
+<title>MORSE FLASH V2.1 - Luce + Suono + Tap</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#fff;font-family:system-ui,sans-serif;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom);min-height:100dvh}
+header{padding:16px 4px 8px;text-align:center}
+h1{font-size:1.6rem;letter-spacing:6px}h1 span{color:#FFD700}
+.sub{font-size:.65rem;opacity:.6;letter-spacing:1px;margin-top:4px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.tab{padding:14px;border-radius:12px;background:#1a1a1a;border:1px solid #333;text-align:center;cursor:pointer;font-weight:800}
+.tab.active{background:#FFD700;color:#000}
+.card{background:#111;border:1px solid #333;border-radius:16px;padding:14px;margin:10px 0}
+.label{font-size:.65rem;letter-spacing:2px;opacity:.6;text-align:center;margin-bottom:8px}
+textarea{width:100%;background:#000;color:#fff;border:1px solid #444;border-radius:10px;padding:12px;font-size:1rem;min-height:70px}
+button{width:100%;padding:14px;border:none;border-radius:10px;background:#FFD700;color:#000;font-weight:900;font-size:1rem;margin-top:8px;cursor:pointer}
+button.ghost{background:#222;color:#fff;border:1px solid #444}button.red{background:#FF2D55;color:#fff}button.green{background:#00C853;color:#000}button.blue{background:#00E5FF;color:#000}
+.big{font-size:1.4rem;font-weight:900;text-align:center;word-break:break-word;line-height:1.4;min-height:40px}
+.morse{font-family:'Courier New',monospace;font-size:1.1rem;color:#FFD700;text-align:center;word-break:break-all;line-height:1.6;min-height:30px}
+.small{font-size:.75rem;text-align:center;opacity:.75;line-height:1.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.sliderRow{display:grid;grid-template-columns:90px 1fr 45px;gap:8px;align-items:center;font-size:.8rem;margin:8px 0}
+input[type=range]{width:100%;accent-color:#FFD700}
+input[type=number]{width:100%;background:#000;color:#fff;border:1px solid #444;border-radius:10px;padding:10px;font-size:1rem;text-align:center}
+#flashScreen{position:fixed;inset:0;background:#fff;z-index:9999;display:none;pointer-events:none}#flashScreen.on{display:block}
+#rxVideo{width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover}#rxCanvas{display:none}
+.dot{width:70px;height:70px;border-radius:50%;background:#222;margin:10px auto;border:3px solid #333}.dot.on{background:#FFD700;box-shadow:0 0 40px #FFD700}.dot.rx-on{background:#00E5FF;box-shadow:0 0 40px #00E5FF}.dot.sound-on{background:#FF2D55;box-shadow:0 0 40px #FF2D55}
+.bar{height:8px;background:#222;border-radius:20px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:#FFD700;width:0%}
+.log{font-family:monospace;font-size:.75rem;background:#000;border:1px solid #222;border-radius:10px;padding:10px;max-height:120px;overflow:auto;text-align:left;white-space:pre-wrap}
+details{margin-top:10px}summary{cursor:pointer;font-weight:700;padding:8px 0}.exp{font-size:.82rem;line-height:1.65;opacity:.95}.exp h3{color:#FFD700;margin:12px 0 4px}.exp code{background:#222;padding:2px 6px;border-radius:6px}
+.pill{display:inline-block;padding:4px 10px;border-radius:20px;background:#222;font-size:.7rem;margin:2px}.pill.on{background:#FFD700;color:#000;font-weight:800}
+.check{display:flex;gap:8px;align-items:center;font-size:.85rem;margin:6px 0}
+</style>
+</head>
+<body>
+<div id="flashScreen"></div>
+<header><h1>MORSE <span>FLASH V2</span></h1><div class="sub">LUCE + SUONO • TESTO ↔ FLASH ↔ BIP • RIPETIZIONI</div></header>
+
+<div class="tabs">
+<div class="tab active" id="tabTX" onclick="showTab('tx')">💡🔊 TRASMETTI<br><span style="font-size:.65rem;font-weight:400">Testo → Flash + Bip</span></div>
+<div class="tab" id="tabRX" onclick="showTab('rx')">📷🎤 RICEVI<br><span style="font-size:.65rem;font-weight:400">Flash / Bip → Testo</span></div>
+</div>
+
+<!-- TX -->
+<div id="pageTX">
+<div class="card">
+<div class="label">✍️ MESSAGGIO</div>
+<textarea id="txText">CIAO COME STAI</textarea>
+<div class="row" style="margin-top:8px">
+<div><div class="small">🔁 RIPETIZIONI</div><input type="number" id="txRepeat" min="1" max="20" value="3"><div class="small">1 = una volta<br>0 = infinito (loop)</div></div>
+<div><div class="small">⏱️ PAUSA TRA RIPETIZIONI</div><input type="number" id="txPauseRepeat" min="0" max="10000" value="1500"><div class="small">in ms • 1500 = 1,5 sec</div></div>
+</div>
+<div class="row3" style="margin-top:8px">
+<button class="ghost" onclick="setRepeat(1)">1x</button>
+<button class="ghost" onclick="setRepeat(3)">3x</button>
+<button class="ghost" onclick="setRepeat(0)">∞ Loop</button>
+</div>
+<div class="sliderRow"><b>Velocità</b><input type="range" id="txSpeed" min="80" max="500" value="200"><span id="txSpeedVal">200ms</span></div>
+<div class="sliderRow"><b>Freq. Bip</b><input type="range" id="txFreq" min="400" max="1200" value="800"><span id="txFreqVal">800Hz</span></div>
+<div class="sliderRow"><b>Vol. Bip</b><input type="range" id="txVol" min="0" max="100" value="80"><span id="txVolVal">80%</span></div>
+<div class="check"><input type="checkbox" id="useFlash" checked> 💡 Usa Flash torcia / schermo</div>
+<div class="check"><input type="checkbox" id="useSound" checked> 🔊 Usa Suono bip - biiip</div>
+<div class="check"><input type="checkbox" id="useVibrate"> 📳 Vibrazione (solo Android)</div>
+<div class="check"><input type="checkbox" id="txScreenFlash" checked> ⬜ Flash schermo intero (fallback torcia)</div>
+<div class="small" style="margin-top:6px">Punto • = 1 unità + bip corto • Linea — = 3 unità + bip lungo</div>
+<button id="txBtn" onclick="toggleTX()">💡🔊 INIZIA A TRASMETTERE</button>
+<button class="ghost" onclick="stopTX()">⏹️ STOP</button>
+<button class="ghost" onclick="testBeep()">🔊 Prova bip: • — •</button>
+</div>
+
+<div class="card">
+<div class="label">STATO TRASMISSIONE</div>
+<div class="dot" id="txDot"></div>
+<div class="big" id="txCurrent">—</div>
+<div class="morse" id="txMorse"></div>
+<div class="bar"><i id="txBar"></i></div>
+<div class="small" id="txStatus">Pronto.</div>
+<div class="small" id="txRepeatStatus"></div>
+<div class="small" style="margin-top:6px"><span class="pill" id="pillFlash">💡 FLASH ON</span> <span class="pill" id="pillSound">🔊 SUONO ON</span> <span class="pill" id="pillVib">📳 VIBRA OFF</span></div>
+</div>
+
+<div class="card"><div class="label">📖 TABELLA MORSE</div><div class="small" id="morseTable" style="font-family:monospace;line-height:1.8"></div></div>
+</div>
+
+<!-- RX -->
+<div id="pageRX" style="display:none">
+<div class="card">
+<div class="label">🎯 SCEGLI COME RICEVERE</div>
+<div class="row" style="grid-template-columns:1fr 1fr 1fr 1fr; gap:4px;">
+<button class="ghost" style="padding:8px" id="rxModeCamBtn" onclick="setRXMode('cam')">📷 Cam</button>
+<button class="ghost" style="padding:8px" id="rxModeMicBtn" onclick="setRXMode('mic')">🎤 Mic</button>
+<button class="ghost" style="padding:8px" id="rxModeBothBtn" onclick="setRXMode('both')">📷+🎤</button>
+<button class="ghost" style="padding:8px" id="rxModeTapBtn" onclick="setRXMode('tap')">👆 Tap</button>
+</div>
+<button id="rxTapBtn" class="blue" style="display:none; height:120px; font-size:1.3rem; margin:10px 0; user-select:none; touch-action:manipulation;">👆 TIENI PREMUTO SEGNALE</button>
+
+<div class="small" id="rxModeInfo" style="margin-top:8px">Modalità: Fotocamera. Inquadra il flash.</div>
+<video id="rxVideo" autoplay playsinline muted></video>
+<canvas id="rxCanvas" width="160" height="120"></canvas>
+<div class="dot" id="rxDot"></div>
+<div class="small">Luce: <b id="rxBright">--</b> • Soglia luce: <b id="rxThresh">--</b> • Audio: <b id="rxAudio">--</b> • Soglia audio: <b id="rxAudioThresh">--</b> • Stato: <b id="rxState">--</b></div>
+<div class="sliderRow"><b>Soglia luce</b><input type="range" id="rxThreshSlider" min="30" max="220" value="120"><span id="rxThreshVal">120</span></div>
+<div class="sliderRow"><b>Soglia audio</b><input type="range" id="rxAudioThreshSlider" min="5" max="100" value="25"><span id="rxAudioThreshVal">25</span></div>
+<div class="small">Se inquadri e non rileva, abbassa soglia luce. Se sente rumore, alza soglia audio.</div>
+<div class="row" style="margin-top:10px"><button class="green" onclick="startRX()">▶️ AVVIA RICEZIONE</button><button class="red" onclick="stopRX()">⏹️ STOP</button></div>
+<button class="ghost" onclick="clearRX()">🗑️ Cancella messaggio</button>
+<button class="ghost" onclick="calibrateRX()">🎯 Calibra automatica (2s buio/silenzio + 2s luce/bip)</button>
+</div>
+<div class="card">
+<div class="label">📩 MESSAGGIO RICEVUTO</div>
+<div class="big" id="rxText" style="color:#00E5FF;min-height:50px">—</div>
+<div class="morse" id="rxMorse" style="color:#fff"></div>
+<div class="small" id="rxTiming">In attesa...</div>
+<div class="small">Ultimo: <b id="rxLast">—</b> • Via: <b id="rxVia">—</b></div>
+<div class="log" id="rxLog">Log:\n</div>
+</div>
+<div class="card">
+<div class="label">🧪 PROVA SENZA 2 TELEFONI</div>
+<div class="small">Apri 2 schede: una trasmette, l'altra riceve e guarda/ascolta. Oppure premi Simula.</div>
+<button class="ghost" onclick="simulateRX()">✨ SIMULA SOS RICEVUTO</button>
+</div>
+</div>
+
+<div class="card"><details open><summary>📖 COME FUNZIONA V2.1</summary><div class="exp">
+<h3>TX: Testo → Flash + Suono + Vibrazione + Ripetizioni</h3>
+<p>Scrivi, scegli <b>quante volte</b> ripeterlo: 1 = una volta, 3 = 3 volte, 0 = infinito. Pausa tra ripetizioni: 1500ms = 1,5 sec di silenzio tra una ripetizione e l'altra, così chi riceve capisce che ricomincia. Ogni ripetizione è numerata: <code>Ripetizione 2/3</code>.</p>
+<p>Ogni punto • = luce accesa + bip 800Hz + vibrazione 1 unità. Ogni linea — = luce + bip + vibrazione 3 unità. Puoi spegnere luce e tenere solo suono, o viceversa. Perfetto al buio (solo luce), in tasca (solo vibrazione), o a distanza (solo suono).</p>
+<h3>RX: Fotocamera + Microfono + Manuale</h3>
+<p><b>Fotocamera:</b> guarda la luminosità 30 volte/sec. <b>Microfono:</b> ascolta il volume 30 volte/sec. <b>Entrambi:</b> se uno dei due dice acceso, è acceso. Così se il flash è coperto, sente il bip. Se c'è rumore, vede il flash. Molto più affidabile.<br>
+<b>NOVITÀ - Manuale (Tap):</b> se il browser blocca i permessi, seleziona "Tap". Premi il pulsante quando vedi la luce/senti il suono e rilascialo quando finisce. L'app decodificherà il tuo tocco!</p>
+<p>Decodifica: acceso corto &lt;320ms = punto, lungo = linea. Spento 420-900ms = fine lettera, &gt;900ms = fine parola. Se perdi una lettera, l'app ti scrive ? ma continua.</p>
+</div></details></div>
+
+<script>
+const MORSE={'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..','0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.','.':'.-.-.-',',':'--..--','?':'..--..','/':'-..-.','=':'-...-','!':'-.-.--',' ':'/'};
+const REVERSE={}; for(let k in MORSE) REVERSE[MORSE[k]]=k==='/'?' ':k;
+document.getElementById('morseTable').textContent=Object.entries(MORSE).filter(([k])=>k!==' ').map(([k,v])=>k+' '+v.replaceAll('.','•').replaceAll('-','—')).join('  •  ');
+function textToMorse(t){return t.toUpperCase().split('').map(c=>MORSE[c]||'').join(' ');}
+function showTab(t){document.getElementById('pageTX').style.display=t==='tx'?'block':'none';document.getElementById('pageRX').style.display=t==='rx'?'block':'none';document.getElementById('tabTX').className='tab '+(t==='tx'?'active':'');document.getElementById('tabRX').className='tab '+(t==='rx'?'active':'');if(t==='rx')stopTX();}
+function setRepeat(v){document.getElementById('txRepeat').value=v;}
+document.getElementById('txSpeed').addEventListener('input',e=>document.getElementById('txSpeedVal').textContent=e.target.value+'ms');
+document.getElementById('txFreq').addEventListener('input',e=>document.getElementById('txFreqVal').textContent=e.target.value+'Hz');
+document.getElementById('txVol').addEventListener('input',e=>document.getElementById('txVolVal').textContent=e.target.value+'%');
+document.getElementById('rxThreshSlider').addEventListener('input',e=>document.getElementById('rxThreshVal').textContent=e.target.value);
+document.getElementById('rxAudioThreshSlider').addEventListener('input',e=>document.getElementById('rxAudioThreshVal').textContent=e.target.value);
+function logRX(s){let el=document.getElementById('rxLog');el.textContent+='['+new Date().toLocaleTimeString()+'] '+s+'\n';el.scrollTop=el.scrollHeight;}
+
+// AUDIO
+let audioCtx=null, audioOsc=null, audioGain=null;
+function ensureAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+function beepStart(){ if(!document.getElementById('useSound').checked) return; try{ ensureAudio(); if(audioOsc) return; audioOsc=audioCtx.createOscillator(); audioGain=audioCtx.createGain(); audioOsc.type='sine'; audioOsc.frequency.value=+document.getElementById('txFreq').value; audioGain.gain.value=+document.getElementById('txVol').value/100*0.5; audioOsc.connect(audioGain); audioGain.connect(audioCtx.destination); audioOsc.start(); let d=document.getElementById('txDot'); d.className='dot sound-on'; }catch(e){} }
+function beepStop(){ try{ if(audioOsc){ audioOsc.stop(); audioOsc=null; } }catch(e){} let d=document.getElementById('txDot'); if(!document.getElementById('useFlash').checked) d.className='dot'; }
+function testBeep(){ ensureAudio(); // • — •
+  let unit=200; let seq=[1,3,1]; let i=0;
+  function next(){ if(i>=seq.length){beepStop();return;} beepStart(); setTimeout(()=>{beepStop(); setTimeout(()=>{i++; next();},unit);}, seq[i]*unit); } next();
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// TX
+let txRunning=false, txStream=null, txTrack=null;
+async function setTorch(on){
+  let useF=document.getElementById('useFlash').checked;
+  if(!useF) { document.getElementById('flashScreen').className=''; document.getElementById('txDot').className='dot'; return; }
+  let d=document.getElementById('txDot'); d.className='dot '+(on?'on':'');
+  document.getElementById('flashScreen').className=(on && document.getElementById('txScreenFlash').checked)?'on':'';
+  try{ if(!txStream){ txStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); txTrack=txStream.getVideoTracks()[0]; } if(txTrack && txTrack.getCapabilities && txTrack.getCapabilities().torch!==undefined){ await txTrack.applyConstraints({advanced:[{torch:on}]}); } }catch(e){}
+}
+async function setSignal(on, unit, isDash){
+  if(on){
+    if(document.getElementById('useFlash').checked) await setTorch(true);
+    if(document.getElementById('useSound').checked) beepStart();
+    if(document.getElementById('useVibrate').checked && navigator.vibrate) navigator.vibrate(isDash?unit*3:unit);
+    document.getElementById('txDot').className='dot on';
+  } else {
+    await setTorch(false); beepStop(); if(navigator.vibrate) navigator.vibrate(0);
+    document.getElementById('txDot').className='dot';
+  }
+}
+async function toggleTX(){
+  if(txRunning){ stopTX(); return; }
+  let text=document.getElementById('txText').value.trim().toUpperCase();
+  if(!text){ alert('Scrivi prima un messaggio'); return; }
+  txRunning=true; ensureAudio();
+  document.getElementById('txBtn').textContent='⏸️ STOP - PREMI PER FERMARE'; document.getElementById('txBtn').className='red';
+  document.getElementById('txMorse').textContent=textToMorse(text).replaceAll('.','•').replaceAll('-','—');
+  document.getElementById('pillFlash').className='pill '+(document.getElementById('useFlash').checked?'on':'');
+  document.getElementById('pillSound').className='pill '+(document.getElementById('useSound').checked?'on':'');
+  document.getElementById('pillVib').className='pill '+(document.getElementById('useVibrate').checked?'on':'');
+  try{ if(document.getElementById('useFlash').checked && !txStream){ txStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); txTrack=txStream.getVideoTracks()[0]; } }catch(e){ document.getElementById('txStatus').textContent='Torcia non disponibile, uso solo schermo + suono.'; }
+  let unit=+document.getElementById('txSpeed').value;
+  let repeatVal=+document.getElementById('txRepeat').value; // 0 = infinito
+  let pauseRepeat=+document.getElementById('txPauseRepeat').value;
+  let total = repeatVal===0 ? 999 : repeatVal;
+  for(let rep=1; rep<=total && txRunning; rep++){
+    document.getElementById('txRepeatStatus').textContent = repeatVal===0 ? 'Ripetizione '+rep+' / ∞ Loop' : 'Ripetizione '+rep+' / '+repeatVal;
+    let chars=text.split('');
+    for(let ci=0; ci<chars.length && txRunning; ci++){
+      let ch=chars[ci]; document.getElementById('txCurrent').textContent=ch===' '?'SPAZIO':ch;
+      if(ch===' '){ await sleep(unit*7); continue; }
+      let code=MORSE[ch]; if(!code) continue;
+      for(let si=0; si<code.length && txRunning; si++){
+        let sym=code[si]; let isDash=sym==='-';
+        document.getElementById('txStatus').textContent='Rip '+rep+'/'+(repeatVal===0?'∞':repeatVal)+' • '+ch+' = '+code.replaceAll('.','•').replaceAll('-','—')+' • '+(isDash?'LINEA —':'PUNTO •');
+        await setSignal(true, unit, isDash);
+        await sleep(isDash?unit*3:unit);
+        await setSignal(false, unit, isDash);
+        await sleep(unit);
+      }
+      document.getElementById('txBar').style.width=((ci+1)/chars.length*100)+'%';
+      await sleep(unit*2);
+    }
+    if(rep<total && txRunning){ document.getElementById('txStatus').textContent='Pausa tra ripetizioni... '+pauseRepeat+'ms'; await setSignal(false,0,false); await sleep(pauseRepeat); }
+  }
+  stopTX();
+}
+async function stopTX(){ txRunning=false; await setSignal(false,0,false); beepStop(); document.getElementById('txBtn').textContent='💡🔊 INIZIA A TRASMETTERE'; document.getElementById('txBtn').className=''; document.getElementById('txStatus').textContent='Pronto.'; document.getElementById('txRepeatStatus').textContent=''; document.getElementById('txDot').className='dot'; document.getElementById('flashScreen').className=''; }
+
+// RX
+let rxRunning=false, rxStream=null, rxMicStream=null, rxAudioCtx=null, rxAnalyser=null, rxInterval=null, rxLastState=false, rxLastChange=0, rxCurrentSymbol='', rxText='', rxMode='cam';
+function setRXMode(m){ 
+  rxMode=m; 
+  document.getElementById('rxModeCamBtn').style.background=m==='cam'?'#FFD700':'#222'; 
+  document.getElementById('rxModeMicBtn').style.background=m==='mic'?'#00E5FF':'#222'; 
+  document.getElementById('rxModeBothBtn').style.background=m==='both'?'#00C853':'#222'; 
+  document.getElementById('rxModeTapBtn').style.background=m==='tap'?'#FF2D55':'#222'; 
+  
+  document.getElementById('rxTapBtn').style.display=m==='tap'?'block':'none';
+  
+  let info = m==='cam'?'Fotocamera: inquadra il flash.':m==='mic'?'Microfono: avvicina al bip.':m==='both'?'Entrambi: massimizza affidabilità.':'Manuale: tieni premuto il pulsante quando c\'è il segnale.';
+  document.getElementById('rxModeInfo').textContent = 'Modalità: ' + info; 
+}
+setRXMode('both');
+
+async function startRX(){
+  if(rxRunning) return;
+  try{
+    rxRunning=true; rxLastState=false; rxLastChange=Date.now(); rxCurrentSymbol=''; rxText='';
+    document.getElementById('rxText').textContent='—'; document.getElementById('rxLog').textContent='Log:\n'; 
+    logRX('Ricezione avviata in modalità '+rxMode);
+
+    // Se siamo in modalità manuale, esci subito (i permessi non servono)
+    if(rxMode==='tap') {
+      rxInterval = setInterval(()=>{ if(!rxRunning) return; handleRXState(rxLastState); }, 33);
+      return; 
+    }
+
+    if(rxMode==='cam' || rxMode==='both'){ rxStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); document.getElementById('rxVideo').srcObject=rxStream; }
+    if(rxMode==='mic' || rxMode==='both'){ rxMicStream=await navigator.mediaDevices.getUserMedia({audio:true}); rxAudioCtx=new (window.AudioContext||window.webkitAudioContext)(); let src=rxAudioCtx.createMediaStreamSource(rxMicStream); rxAnalyser=rxAudioCtx.createAnalyser(); rxAnalyser.fftSize=512; src.connect(rxAnalyser); }
+    
+    let canvas=document.getElementById('rxCanvas'); let ctx=canvas.getContext('2d',{willReadFrequently:true}); let video=document.getElementById('rxVideo');
+    rxInterval=setInterval(()=>{
+      if(!rxRunning) return;
+      let camOn=false, micOn=false, bright=0, vol=0;
+      if((rxMode==='cam'||rxMode==='both') && video.videoWidth>0){ try{ ctx.drawImage(video,0,0,160,120); let d=ctx.getImageData(0,0,160,120).data; let sum=0; for(let i=0;i<d.length;i+=4) sum+=(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114); bright=sum/(d.length/4); let thresh=+document.getElementById('rxThreshSlider').value; camOn=bright>thresh; document.getElementById('rxBright').textContent=Math.round(bright); document.getElementById('rxThresh').textContent=thresh; }catch(e){} }
+      if((rxMode==='mic'||rxMode==='both') && rxAnalyser){ let arr=new Uint8Array(rxAnalyser.fftSize); rxAnalyser.getByteTimeDomainData(arr); let s=0; for(let i=0;i<arr.length;i++){ let v=(arr[i]-128)/128; s+=v*v; } vol=Math.sqrt(s/arr.length)*1000; let athr=+document.getElementById('rxAudioThreshSlider').value; micOn=vol>athr; document.getElementById('rxAudio').textContent=Math.round(vol); document.getElementById('rxAudioThresh').textContent=athr; }
+      let on = rxMode==='cam'?camOn : rxMode==='mic'?micOn : (camOn||micOn);
+      let via = (camOn&&micOn)?'📷+🎤':camOn?'📷':micOn?'🎤':'—';
+      document.getElementById('rxVia').textContent=via;
+      document.getElementById('rxDot').className='dot '+(on?'rx-on':'');
+      document.getElementById('rxState').textContent=on?'💡/🔊 ACCESO':'⚫ SPENTO';
+      handleRXState(on);
+    },33);
+  }catch(e){ 
+      alert('Serve HTTPS per usare Fotocamera/Microfono.\nIn alternativa, usa la modalità "👆 Tap".\n\nErrore: '+e.message); 
+      stopRX(); 
+  }
+}
+
+function handleRXState(on){
+  let now=Date.now(); let dur=now-rxLastChange;
+  if(on!==rxLastState){
+    if(rxLastState===true){ let sym=dur<320?'.':'-'; rxCurrentSymbol+=sym; document.getElementById('rxLast').textContent=sym==='.'?'PUNTO • ('+dur+'ms)':'LINEA — ('+dur+'ms)'; logRX('Segnale '+(sym==='.'?'PUNTO':'LINEA')+' '+dur+'ms -> '+rxCurrentSymbol); document.getElementById('rxMorse').textContent=rxCurrentSymbol; }
+    else { if(dur>900 && rxCurrentSymbol) finishLetter(true); else if(dur>420 && rxCurrentSymbol) finishLetter(false); }
+    rxLastState=on; rxLastChange=now;
+  } else {
+    if(!on && rxCurrentSymbol && dur>1200){ finishLetter(false); rxLastChange=now; }
+  }
+  document.getElementById('rxTiming').textContent='Stato da '+dur+'ms • Simbolo: '+(rxCurrentSymbol||'(nessuno)');
+}
+
+function finishLetter(isWordEnd){ let letter=REVERSE[rxCurrentSymbol]||'?'; rxText += isWordEnd?letter+' ':letter; logRX('Lettera: '+rxCurrentSymbol+' = '+letter+(isWordEnd?' + SPAZIO':'')); document.getElementById('rxText').textContent=rxText; document.getElementById('rxMorse').textContent=''; rxCurrentSymbol=''; }
+function stopRX(){ rxRunning=false; if(rxInterval) clearInterval(rxInterval); if(rxStream) rxStream.getTracks().forEach(t=>t.stop()); if(rxMicStream) rxMicStream.getTracks().forEach(t=>t.stop()); if(rxAudioCtx) rxAudioCtx.close(); document.getElementById('rxVideo').srcObject=null; logRX('Stop.'); }
+function clearRX(){ rxText=''; rxCurrentSymbol=''; document.getElementById('rxText').textContent='—'; document.getElementById('rxMorse').textContent=''; document.getElementById('rxLog').textContent='Log:\n'; }
+async function calibrateRX(){ if(!rxRunning){alert('Avvia prima');return;} logRX('Calibra: 2s silenzio/buio...'); await sleep(2000); let dark=parseInt(document.getElementById('rxBright').textContent)||60; let quiet=parseInt(document.getElementById('rxAudio').textContent)||10; logRX('Buio '+dark+' Silenzio '+quiet+'. Ora accendi flash / fai bip per 2s...'); await sleep(2000); let light=parseInt(document.getElementById('rxBright').textContent)||180; let loud=parseInt(document.getElementById('rxAudio').textContent)||80; let midL=Math.round((dark+light)/2); let midA=Math.round((quiet+loud)/2); document.getElementById('rxThreshSlider').value=midL; document.getElementById('rxThreshVal').textContent=midL; document.getElementById('rxAudioThreshSlider').value=midA; document.getElementById('rxAudioThreshVal').textContent=midA; logRX('Soglie: luce '+midL+', audio '+midA); }
+function simulateRX(){ clearRX(); let words=[['.','.','.'],['-','-','-'],['.','.','.']]; for(let w of words){ rxCurrentSymbol=w.join(''); finishLetter(false); } document.getElementById('rxText').textContent=rxText||'SOS'; logRX('Simulazione SOS finita'); }
+
+// Gestione del pulsante di ricezione manuale (Tap)
+let tapBtn = document.getElementById('rxTapBtn');
+function pressTap(e) { 
+  if(e) e.preventDefault(); 
+  if(!rxRunning || rxMode!=='tap') return; 
+  document.getElementById('rxDot').className='dot rx-on'; 
+  document.getElementById('rxState').textContent='👆 PREMUTO';
+  handleRXState(true); 
+}
+function releaseTap(e) { 
+  if(e) e.preventDefault(); 
+  if(!rxRunning || rxMode!=='tap') return; 
+  document.getElementById('rxDot').className='dot'; 
+  document.getElementById('rxState').textContent='⚫ RILASCIATO';
+  handleRXState(false); 
+}
+tapBtn.addEventListener('mousedown', pressTap);
+tapBtn.addEventListener('touchstart', pressTap, {passive: false});
+tapBtn.addEventListener('mouseup', releaseTap);
+tapBtn.addEventListener('mouseleave', releaseTap);
+tapBtn.addEventListener('touchend', releaseTap);
+
+</script>
+</body>
+</html>
